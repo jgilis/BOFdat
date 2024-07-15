@@ -41,7 +41,7 @@ def _assess_solvability(metabolite_list, model):
             model.reactions.BIOMASS.objective_coefficient = 1.
             solution = model.optimize()
             # If the model can produce that metabolite
-            if solution.f > 1e-9:
+            if solution.objective_value > 1e-9:
                 solvable_metab.append(m.id)
         else:
             model.reactions.BIOMASS.objective_coefficient = 1.
