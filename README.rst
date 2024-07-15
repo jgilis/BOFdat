@@ -1,7 +1,7 @@
 |License| |Documentation|
 
-BOFdat
-======
+BOFdat - Fork
+=============
 Generate biomass objective function for genome-scale models from experimental data.
 BOFdat is a three step workflow that allows modellers to generate a complete biomass objective function *de novo* from experimental data:
 
@@ -10,6 +10,8 @@ BOFdat is a three step workflow that allows modellers to generate a complete bio
 2. Find coenzymes and inorganic ions
 
 3. Find metabolic end goals
+
+**This fork contains a vital change in the code for finding the solution objective from COBRApy to work with newer versions.**
 
 
 Significance
