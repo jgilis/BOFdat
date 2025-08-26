@@ -59,7 +59,7 @@ def _get_ratio(base_genome):
     gc_sum = base_genome['G'] + base_genome['C']
     return {k: at_sum / total if k in 'AT' else gc_sum / total for k in 'ATGC'}
 
-def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met=None):
+def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met):
     
     DIPHOSPHATE_WEIGHT = 174.951262
 
@@ -71,8 +71,8 @@ def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met=None):
     DNA_WEIGHT = CELL_WEIGHT * DNA_RATIO
 
     if base_to_met is None:
-        base_to_met = {'A': model.metabolites.datp_c, 'T': model.metabolites.dttp_c,
-                       'C': model.metabolites.dctp_c, 'G': model.metabolites.dgtp_c}
+        base_to_met = {'A': 'datp_c', 'T': 'dttp_c',
+                       'C': 'dctp_c', 'G': 'dgtp_c'}
 
     coefficients,metabolites = [],[]
 
@@ -80,7 +80,8 @@ def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met=None):
     for letter in BASES:
         ratio = ratio_genome.get(letter)
         total_weight = ratio * DNA_WEIGHT
-        metab = base_to_met.get(letter)
+        metab_id = base_to_met.get(letter)
+        metab = model.metabolites.get_by_id(metab_id)
         mol_weight = metab.formula_weight - DIPHOSPHATE_WEIGHT
         mmols_per_cell = (total_weight / mol_weight) * 1000
         mmols_per_gDW = mmols_per_cell / CELL_WEIGHT
@@ -107,7 +108,7 @@ def generate_coefficients(path_to_fasta,
     :param DNA_RATIO: the ratio of DNA in the entire cell
 
     :param base_to_met: a dictionary with keys for each nucleotide (ACGT) and 
-    values the corresponding metabolite identifiers in the model. 
+    values the corresponding metabolite identifiers (string) in the model. 
     Default = None, in case which BIGG nomenclature is assumed.
 
     :param ppi: a string indicating the metabolite identifier for pyrophosphate
