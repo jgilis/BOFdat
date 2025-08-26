@@ -77,7 +77,7 @@ def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met=None):
     coefficients,metabolites = [],[]
 
     # Calculate the biomass coefficient for each metabolite
-    for letter in step1.dna.BASES:
+    for letter in BASES:
         ratio = ratio_genome.get(letter)
         total_weight = ratio * DNA_WEIGHT
         metab = base_to_met.get(letter)
