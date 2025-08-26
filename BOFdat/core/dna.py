@@ -86,7 +86,7 @@ def _convert_to_coefficient(model, ratio_genome, DNA_RATIO, base_to_met):
         mmols_per_cell = (total_weight / mol_weight) * 1000
         mmols_per_gDW = mmols_per_cell / CELL_WEIGHT
         coefficients.append(mmols_per_gDW)
-        metabolites.append(base_to_met.get(letter))
+        metabolites.append(metab)
 
     DNA_coefficients = dict(zip(metabolites,[-i for i in coefficients]))
     return DNA_coefficients
