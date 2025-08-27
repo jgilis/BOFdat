@@ -334,8 +334,15 @@ def generate_coefficients(path_to_genbank,
 
     if RNA_WEIGHT_FRACTION > 1. or rRNA_WEIGHT_FRACTION > 1. or tRNA_WEIGHT_FRACTION > 1. or mRNA_WEIGHT_FRACTION > 1.:
         raise Exception('WEIGHT FRACTION should be a number between 0 and 1')
+    
     # Operations
     model = _import_model(path_to_model)
+
+    if not all(value in [met.id for met in model.metabolites] for value in rna_base_to_met.values()):
+        raise ValueError(f"One or more metabolite IDs from `rna_base_to_met` are not found in the model.")
+
+    if not ppi in [met.id for met in model.metabolites]:
+        raise ValueError(f"The metabolite ID '{ppi}' is not found in the model.")
  
     rRNA_dict, tRNA_dict, mRNA_dict = _process_record(path_to_genbank,path_to_transcriptomic,identifier)
 

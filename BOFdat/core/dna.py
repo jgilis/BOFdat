@@ -124,6 +124,11 @@ def generate_coefficients(path_to_fasta,
     base_in_genome = _get_number_of_bases(genome)
     ratio_in_genome = _get_ratio(base_in_genome)
     model = _import_model(path_to_model)
+    if not all(value in [met.id for met in model.metabolites] for value in dna_base_to_met.values()):
+        raise ValueError(f"One or more metabolite IDs from `dna_base_to_met` are not found in the model.")
+
+    if not ppi in [met.id for met in model.metabolites]:
+        raise ValueError(f"The metabolite ID '{ppi}' is not found in the model.")
     biomass_coefficients = _convert_to_coefficient(model,
                                                    ratio_in_genome,
                                                    DNA_WEIGHT_FRACTION, 
