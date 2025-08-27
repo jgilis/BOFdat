@@ -79,14 +79,13 @@ def _get_fraction(seq):
 
 def _get_RNA_sequence(location, strand,genome_record):
     # This function spits out the RNA sequence of a given gene
-    from Bio.Alphabet import IUPAC
     from Bio.Seq import Seq
     # Get the gene sequence
     sequence = []
     for number in range(location.start, location.end):
         sequence.append(genome_record[number])
     seq_str = ''.join(sequence)
-    my_seq = Seq(seq_str, IUPAC.unambiguous_dna)
+    my_seq = Seq(seq_str)
     try:
         if strand == 1:
             rna_seq = my_seq.transcribe()
@@ -193,7 +192,7 @@ def _process_record(path_to_genbank,path_to_transcriptomic,identifier):
                             try: tRNA_locus.append(before.qualifiers['locus_tag'][0])
                             except: raise Exception("Can't fetch tRNA locus_tag!")
                         else:
-                            # raise Exception("Can't locate gene corresponding to a tRNA!") #TODO add a warning?
+                            # raise Exception("Can't locate gene corresponding to a tRNA!")
                             tRNA_locus.append("tRNA_%s" %(len(tRNA_locus)))
 
                 if element.type == 'rRNA':
@@ -207,7 +206,7 @@ def _process_record(path_to_genbank,path_to_transcriptomic,identifier):
                             try: rRNA_locus.append(before.qualifiers['locus_tag'][0])
                             except: raise Exception("Can't fetch rRNA locus_tag!")
                         else:
-                            # raise Exception("Can't locate gene corresponding to a rRNA!") #TODO add a warning?
+                            # raise Exception("Can't locate gene corresponding to a rRNA!")
                             rRNA_locus.append("rRNA_%s" %(len(rRNA_locus)))
 
 
@@ -260,35 +259,46 @@ def _total_coefficients(mRNA_fractions, tRNA_fractions, rRNA_fractions, mRNA_RAT
 
     return RNA_total
 
-def _convert_to_mmolgDW(RNA_coefficients, model, RNA_RATIO, CELL_WEIGHT):
+def _convert_to_mmolgDW(RNA_coefficients, model, RNA_RATIO, rna_base_to_met=None):
+    # Dryweight of an e. coli cell in femtogram
+    # Cancels out in these equations, but makes variables interpretable
+    CELL_WEIGHT = 280
     DIPHOSPHATE_WEIGHT = 174.951262
     # Get coefficients for BIOMASS
     # Transform the ratios into mmol/gDW
     RNA_WEIGHT = CELL_WEIGHT * RNA_RATIO
 
-    rna_base_to_bigg = {'A': model.metabolites.atp_c, 'U': model.metabolites.utp_c,
-                        'C': model.metabolites.ctp_c, 'G': model.metabolites.gtp_c}
+    if rna_base_to_met is None:
+        # Default to BIGG nomenclature
+        rna_base_to_met = {'A': 'atp_c', 'U': 'utp_c',
+                           'C': 'ctp_c', 'G': 'gtp_c'}
+        
     metabolites, coefficients = [], []
     # Get the total weight of each letter
     for letter in BASES:
         ratio = RNA_coefficients.get(letter)
         total_weight = ratio * RNA_WEIGHT
-        metab = rna_base_to_bigg.get(letter)
+        metab_id = rna_base_to_met.get(letter)
+        metab = model.metabolites.get_by_id(metab_id)
         mol_weight = metab.formula_weight - DIPHOSPHATE_WEIGHT
         mmols_per_cell = (total_weight / mol_weight) * 1000
         mmols_per_gDW = mmols_per_cell / CELL_WEIGHT
         coefficients.append(mmols_per_gDW)
-        metabolites.append(rna_base_to_bigg.get(letter))
+        metabolites.append(metab)
 
     RNA_biomass_ratios = dict(zip(metabolites, [-i for i in coefficients]))
     return RNA_biomass_ratios
 
-def generate_coefficients(path_to_genbank, path_to_model, path_to_transcriptomic,
-                         RNA_WEIGHT_FRACTION=0.205,
-                         rRNA_WEIGHT_FRACTION=0.9,
-                         tRNA_WEIGHT_FRACTION=0.05,
-                         mRNA_WEIGHT_FRACTION=0.05,
-                         identifier='locus_tag'):
+def generate_coefficients(path_to_genbank, 
+                          path_to_model, 
+                          path_to_transcriptomic,
+                          rna_base_to_met = None,
+                          ppi = None,
+                          RNA_WEIGHT_FRACTION=0.205,
+                          rRNA_WEIGHT_FRACTION=0.9,
+                          tRNA_WEIGHT_FRACTION=0.05,
+                          mRNA_WEIGHT_FRACTION=0.05,
+                          identifier='locus_tag'):
     """
     Generates a dictionary of metabolite:coefficients for the 4 RNA bases from the organism's
     GenBank annotated file, total RNA weight percentage, transcriptomic. Alternately, ribosomal,
@@ -300,6 +310,14 @@ def generate_coefficients(path_to_genbank, path_to_model, path_to_transcriptomic
     :param path_to_model: a path to the model, format supported are json and xml
 
     :param path_to_transcriptomic: a two column pandas dataframe (gene_id, abundance)
+
+    :param rna_base_to_met: a dictionary with keys for each nucleotide (ACGT) and 
+        values the corresponding metabolite identifiers (string) in the model. 
+        Default = None, in case which BIGG nomenclature is assumed.
+
+    :param ppi: a string indicating the metabolite identifier for pyrophosphate
+        (ppi) in the model.
+        Default = None, in case which BIGG nomenclature is assumed.
 
     :param RNA_WEIGHT_FRACTION: the weight fraction of RNA in the entire cell
 
@@ -313,7 +331,7 @@ def generate_coefficients(path_to_genbank, path_to_model, path_to_transcriptomic
 
     :return: a dictionary of metabolites and coefficients
     """
-    CELL_WEIGHT = 280
+
     if RNA_WEIGHT_FRACTION > 1. or rRNA_WEIGHT_FRACTION > 1. or tRNA_WEIGHT_FRACTION > 1. or mRNA_WEIGHT_FRACTION > 1.:
         raise Exception('WEIGHT FRACTION should be a number between 0 and 1')
     # Operations
@@ -324,9 +342,14 @@ def generate_coefficients(path_to_genbank, path_to_model, path_to_transcriptomic
     RNA_coefficients = _total_coefficients(rRNA_dict, tRNA_dict, mRNA_dict,
                                            mRNA_WEIGHT_FRACTION, tRNA_WEIGHT_FRACTION, rRNA_WEIGHT_FRACTION)
     RNA_biomass_ratios = _convert_to_mmolgDW(RNA_coefficients,
-                                            model, RNA_WEIGHT_FRACTION, CELL_WEIGHT)
+                                             model,
+                                             RNA_WEIGHT_FRACTION,
+                                             rna_base_to_met)
     ppi_coeff = sum(RNA_biomass_ratios.values())
-    ppi_dict = {model.metabolites.get_by_id('ppi_c'): -ppi_coeff}
+    if ppi is None:
+        ppi_dict = {model.metabolites.get_by_id('ppi_c'):-ppi_coeff}
+    else:
+        ppi_dict = {model.metabolites.get_by_id(ppi):-ppi_coeff}
     RNA_biomass_ratios.update(ppi_dict)
 
     return RNA_biomass_ratios

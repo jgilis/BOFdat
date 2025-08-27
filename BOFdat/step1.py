@@ -53,6 +53,8 @@ def generate_dna_coefficients(path_to_fasta,
 def generate_rna_coefficients(path_to_genbank,
                               path_to_model,
                               path_to_transcriptomic,
+                              rna_base_to_met = None,
+                              ppi = None,
                               RNA_WEIGHT_FRACTION=0.205,
                               rRNA_WEIGHT_FRACTION=0.9,
                               tRNA_WEIGHT_FRACTION=0.05,
@@ -77,6 +79,14 @@ def generate_rna_coefficients(path_to_genbank,
     :param path_to_transcriptomic: a two column pandas dataframe
     (gene_id, abundance)
 
+    :param rna_base_to_met: a dictionary with keys for each nucleotide (ACGT) and 
+        values the corresponding metabolite identifiers (string) in the model. 
+        Default = None, in case which BIGG nomenclature is assumed.
+
+    :param ppi: a string indicating the metabolite identifier for pyrophosphate
+        (ppi) in the model.
+        Default = None, in case which BIGG nomenclature is assumed.
+
     :param RNA_WEIGHT_FRACTION: the weight fraction of RNA in the entire cell
 
     :param rRNA_WEIGHT_FRACTION: the fraction of rRNA to total
@@ -93,6 +103,8 @@ def generate_rna_coefficients(path_to_genbank,
     rna_coefficients = rna.generate_coefficients(path_to_genbank,
                                                  path_to_model,
                                                  path_to_transcriptomic,
+                                                 rna_base_to_met,
+                                                 ppi,
                                                  RNA_WEIGHT_FRACTION,
                                                  rRNA_WEIGHT_FRACTION,
                                                  tRNA_WEIGHT_FRACTION,
