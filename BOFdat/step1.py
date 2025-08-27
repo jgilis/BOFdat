@@ -12,9 +12,11 @@ from BOFdat.core import protein
 from BOFdat.core import lipid
 from BOFdat.core import maintenance
 
-
-def generate_dna_coefficients(path_to_fasta, path_to_model,
-                              DNA_WEIGHT_FRACTION=0.031):
+def generate_dna_coefficients(path_to_fasta, 
+                              path_to_model,
+                              DNA_WEIGHT_FRACTION=0.031,
+                              base_to_met = None,
+                              ppi = None):
 
     """
     Generate a dictionary of metabolite:coefficients for the 4 DNA bases.
@@ -29,12 +31,22 @@ def generate_dna_coefficients(path_to_fasta, path_to_model,
 
     :param DNA_RATIO: the ratio of DNA in the entire cell
 
+    :param base_to_met: a dictionary with keys for each nucleotide (ACGT) and 
+    values the corresponding metabolite identifiers (string) in the model. 
+    Default = None, in case which BIGG nomenclature is assumed.
+
+    :param ppi: a string indicating the metabolite identifier for pyrophosphate
+    (ppi) in the model.
+    Default = None, in case which BIGG nomenclature is assumed.
+
     :return: a dictionary of metabolites and coefficients
     """
 
     dna_coefficients = dna.generate_coefficients(path_to_fasta,
                                                  path_to_model,
-                                                 DNA_WEIGHT_FRACTION=0.031)
+                                                 DNA_WEIGHT_FRACTION,
+                                                 base_to_met,
+                                                 ppi)
     return dna_coefficients
 
 
