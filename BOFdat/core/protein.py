@@ -10,6 +10,39 @@ import warnings
 AMINO_ACIDS = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W','Y']
 
 # Methods
+def _update_AA_formulae(model, letter_to_met):
+
+    # Amino acid letter to formula mapping
+    amino_acid_formulas = {
+        "A": "C3H5NO",
+        "R": "C6H12N4O",
+        "N": "C4H6N2O2",
+        "D": "C4H5NO3",
+        "C": "C3H5NOS",
+        "Q": "C5H8N2O2",
+        "E": "C5H7NO3",
+        "G": "C2H3NO",
+        "H": "C6H7N3O",
+        "I": "C6H11NO",
+        "L": "C6H11NO",
+        "K": "C6H12N2O",
+        "M": "C5H9NOS",
+        "F": "C9H9NO",
+        "P": "C5H7NO",
+        "S": "C3H5NO2",
+        "T": "C4H7NO2",
+        "W": "C11H10N2O",
+        "Y": "C9H9NO2",
+        "V": "C5H9NO",
+    }
+
+    # Update each metabolite's formula in the model
+    for letter, metab_id in letter_to_met.items():
+        metab = model.metabolites.get_by_id(metab_id)
+        metab.formula = amino_acid_formulas[letter]
+
+    return(model)
+
 def _get_protein_sequence(path_to_genbank):
     # Get the prot id and sequence of each protein from genbank file
     from Bio import SeqIO
@@ -151,7 +184,7 @@ def _get_ratio(normalized_dict, norm_sum, PROTEIN_WEIGHT_FRACTION, CELL_WEIGHT):
 
     return ratio_dict
 
-def _convert_to_coefficient(ratio_dict, model, CELL_WEIGHT):
+def _convert_to_coefficient(ratio_dict, model, letter_to_met, CELL_WEIGHT):
     WATER_WEIGHT = 18.01528
 
     # 3- Convert gram ratios to mmol/g Dry weight
@@ -159,35 +192,29 @@ def _convert_to_coefficient(ratio_dict, model, CELL_WEIGHT):
     To verify that the normalized to grams to get to the total amount of protein
     (here everything is converted to grams instead of femto grams)
     '''
-    letter_to_bigg = {'A': model.metabolites.ala__L_c, 'C': model.metabolites.cys__L_c,
-                      'D': model.metabolites.asp__L_c, 'E': model.metabolites.glu__L_c,
-                      'F': model.metabolites.phe__L_c,
-                      'G': model.metabolites.gly_c, 'H': model.metabolites.his__L_c,
-                      'I': model.metabolites.ile__L_c, 'K': model.metabolites.lys__L_c,
-                      'L': model.metabolites.leu__L_c,
-                      'M': model.metabolites.met__L_c, 'N': model.metabolites.asn__L_c,
-                      'P': model.metabolites.pro__L_c, 'Q': model.metabolites.gln__L_c,
-                      'R': model.metabolites.arg__L_c,
-                      'S': model.metabolites.ser__L_c, 'T': model.metabolites.thr__L_c,
-                      'V': model.metabolites.val__L_c, 'W': model.metabolites.trp__L_c,
-                      'Y': model.metabolites.tyr__L_c}
 
     metabolites, coefficients = [],[]
     # Get number of moles from number of grams
     for letter in AMINO_ACIDS:
-        metab = letter_to_bigg.get(letter)
+        metab_id = letter_to_met.get(letter)
+        metab = model.metabolites.get_by_id(metab_id)
         mol_weight = metab.formula_weight - WATER_WEIGHT
         grams = ratio_dict.get(letter)
         mmols_per_cell = (grams / mol_weight) * 1000
         mmols_per_gDW = mmols_per_cell / CELL_WEIGHT
         coefficients.append(mmols_per_gDW)
-        metabolites.append(letter_to_bigg.get(letter))
+        metabolites.append(metab)
 
     Protein_biomass_coefficients = dict(zip(metabolites,[-i for i in coefficients]))
     return Protein_biomass_coefficients
 
 
-def generate_coefficients(path_to_genbank, path_to_model, path_to_proteomic, PROTEIN_WEIGHT_FRACTION=0.55):
+def generate_coefficients(path_to_genbank, 
+                          path_to_model, 
+                          path_to_proteomic, 
+                          PROTEIN_WEIGHT_FRACTION=0.55, 
+                          letter_to_met = None,
+                          h2o = None):
     """
 
     Generates a dictionary of metabolite:coefficients for the 20 amino acids contained in proteins from the organism's
@@ -201,11 +228,48 @@ def generate_coefficients(path_to_genbank, path_to_model, path_to_proteomic, PRO
 
     :param PROTEIN_RATIO: the ratio of DNA in the entire cell
 
+    :param letter_to_met: a dictionary with keys for each amino acid and 
+        values the corresponding metabolite identifiers (string) in the model. 
+        Default = None, in case which BIGG nomenclature is assumed.
+
+    :param h2o: a string indicating the metabolite identifier for water (h2o) in the model.
+        Default = None, in case which BIGG nomenclature is assumed.
+
     :return: a dictionary of metabolites and coefficients
     """
+    model = _import_model(path_to_model)
+
+    # Dryweight of an e. coli cell in femtogram
+    # Cancels out in these equations eventually, but makes variables interpretable
     CELL_WEIGHT = 280
+
     if PROTEIN_WEIGHT_FRACTION > 1.:
         raise Exception('WEIGHT FRACTION should be a number between 0 and 1')
+    
+    if letter_to_met is None:
+        letter_to_met = {'A': 'ala__L_c', 'C': 'cys__L_c',
+                         'D': 'asp__L_c', 'E': 'glu__L_c',
+                         'F': 'phe__L_c', 'G': 'gly_c',
+                         'H': 'his__L_c', 'I': 'ile__L_c',
+                         'K': 'lys__L_c', 'L': 'leu__L_c',
+                         'M': 'met__L_c', 'N': 'asn__L_c',
+                         'P': 'pro__L_c', 'Q': 'gln__L_c',
+                         'R': 'arg__L_c', 'S': 'ser__L_c',
+                         'T': 'thr__L_c', 'V': 'val__L_c',
+                         'W': 'trp__L_c', 'Y': 'tyr__L_c'}
+    if not all(value in [met.id for met in model.metabolites] for value in letter_to_met.values()):
+        raise ValueError(f"One or more metabolite IDs from `letter_to_met` are not found in the model.")
+    
+    if any(model.metabolites.get_by_id(letter_to_met[letter]).formula_weight is None for letter in AMINO_ACIDS):
+        warnings.warn('The molecular weight of at least one AA metabolite cannot be determined, potentially due to unspecified R-chains.' \
+        'The molecular weight will be determined automatically.')
+        model = _update_AA_formulae(model,letter_to_met)
+        
+    if h2o is None:
+        h2o = 'h2o_c'
+    if not h2o in [met.id for met in model.metabolites]:
+        raise ValueError(f"The metabolite ID '{h2o}' is not found in the model.")
+
     # Operations
     # 1- Parse the genome, extract protein sequence, count and store amino acid composition of each protein
     if PROTEIN_WEIGHT_FRACTION > 1.:
@@ -218,10 +282,9 @@ def generate_coefficients(path_to_genbank, path_to_model, path_to_proteomic, PRO
     # Proteomics data should come in a 2 columns standard format protein_id:abundance
     norm_sum = _get_norm_sum(normalized_dict)
     ratio_dict = _get_ratio(normalized_dict, norm_sum, PROTEIN_WEIGHT_FRACTION, CELL_WEIGHT)
-    model = _import_model(path_to_model)
-    biomass_coefficients = _convert_to_coefficient(ratio_dict,model, CELL_WEIGHT)
+    biomass_coefficients = _convert_to_coefficient(ratio_dict,model,letter_to_met,CELL_WEIGHT)
     h2o_coeff = sum(biomass_coefficients.values())
-    h2o_dict = {model.metabolites.get_by_id('h2o_c'): -h2o_coeff}
+    h2o_dict = {model.metabolites.get_by_id(h2o): -h2o_coeff}
     biomass_coefficients.update(h2o_dict)
     return biomass_coefficients
 

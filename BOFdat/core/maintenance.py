@@ -48,13 +48,12 @@ def _get_carbon_sources(data):
 
 
 def _attribute_colors(data,carbon_sources):
-    # Attribute colors to carbon sources for ploting
+    # Attribute colors to carbon sources for plotting
     # Set a color palette
     import seaborn as sb
-    color_palette = sb.color_palette('deep',len(carbon_sources))
-    data['color'] = ''
-    for i in len(carbon_sources):
-        data.loc[data.Source == carbon_sources[i], 'color'] = color_palette[i]
+    color_palette = sb.color_palette('deep', len(carbon_sources))
+    color_map = dict(zip(carbon_sources, color_palette))
+    data['color'] = data['Source'].map(color_map)
 
     return data
 
@@ -66,19 +65,13 @@ def _atp_cost(model):
     return solution
 
 
-def _calculate_gam(model,data,show_GAM):
+def _calculate_gam(model,data,ATPM_Id):
     #Build the output matrix
     #Contains the ATP costs for each carbon source
     raw_GAM = pd.DataFrame(index=[data.loc[i,'Source'] for i in data.index],
                            columns=['Growth_rate', 'ATP', 'ATP_min', 'ATP_max', 'ATP_err']
                            )
     raw_GAM['Growth_rate'] = [data.loc[i,'GR'] for i in data.index]
-
-    carbon_sources = _get_carbon_sources(data)
-    if show_GAM:
-        data = _attribute_colors(data,carbon_sources)
-    else:
-        data = data
 
     #Set parameters for all models
     #Set lower bound of BOF to 0
@@ -97,8 +90,8 @@ def _calculate_gam(model,data,show_GAM):
     '''
     #model.reactions.EX_glc_LPAREN_e_RPAREN_.lower_bound = 0
     #Optimize for ATP maintenance
-    model.reactions.ATPM.lower_bound = 0
-    model.reactions.ATPM.objective_coefficient = 1.
+    model.reactions.get_by_id(ATPM_Id).lower_bound = 0
+    model.reactions.get_by_id(ATPM_Id).objective_coefficient = 1.
 
     #model.reactions.EX_o2_LPAREN_e_RPAREN_.lower_bound = -1000
     atp, atp_min, atp_max, atp_err = [],[],[],[]
@@ -189,12 +182,10 @@ def _calculate_gam(model,data,show_GAM):
 def _show_gam(raw_GAM):
 
     sns.set_style('whitegrid')
-    x = raw_GAM['Growth_rate']
-    y = raw_GAM['ATP']
-    # Fit with np.polyfit
-    m, b = np.polyfit(x, y, 1)
-
-    print('m', m, 'b', b)
+    
+    # NOTE: this feature was deprecated
+    # carbon_sources = _get_carbon_sources(data)
+    # data = _attribute_colors(data,carbon_sources)
 
     # Get correlation
     x = raw_GAM['Growth_rate']
@@ -211,6 +202,8 @@ def _show_gam(raw_GAM):
     # plt.savefig('all_data.png')
     # plt.savefig('all_data.svg')
     plt.close()
+
+    # NOTE this code was commented out by the original authors of BOFDat
     '''
     plt.errorbar(filtered_data['GR'], filtered_data['ATP'], xerr=filtered_data['GR_std'],
                  yerr=filtered_data['ATP_err'], fmt='.', ecolor='black')
@@ -276,10 +269,10 @@ def _show_gam(raw_GAM):
 
     '''
 
-    return {'GAM': m, 'NGAM': b}
+    return
 
 
-def experimental_maintenance(path_to_data, path_to_model,show_GAM=False):
+def experimental_maintenance(path_to_data, path_to_model, ATPM_Id, show_GAM=False):
     """
 
     Growth-associated maintenance (GAM) is the ATP cost of assembling macromolecules in the organism.
@@ -291,6 +284,8 @@ def experimental_maintenance(path_to_data, path_to_model,show_GAM=False):
 
     :param path_to_model: The path to the model, json or sbml formats supported
 
+    :param ATPM_Id: Reaction identifier for the non-growth associated maintencance reaction (ATP hydrolysis).
+
     :param show_GAM: bool, will associate colors with carbon sources for easier display later
 
     :return: a dictionary {GAM:value, NGAM:value}
@@ -300,9 +295,15 @@ def experimental_maintenance(path_to_data, path_to_model,show_GAM=False):
     #2- Import experimental data
     data = _import_data(path_to_data)
     #3- Calculate GAM
-    raw_GAM = _calculate_gam(model, data,show_GAM)
+    raw_GAM = _calculate_gam(model, data, ATPM_Id)
     #4-
-    gams= _show_gam(raw_GAM)
+    if show_GAM:
+        _show_gam(raw_GAM)
+
+    m, b = np.polyfit(raw_GAM['Growth_rate'],
+                      raw_GAM['ATP'],
+                      1)
+    gams = {'GAM': m, 'NGAM': b}
     #Grs = growth rates
     #new_gams_calc_grs(gams)
 

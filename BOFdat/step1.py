@@ -182,6 +182,7 @@ def generate_lipid_coefficients(path_to_lipidomic,
 
 def generate_maintenance_costs(path_to_data,
                                path_to_model,
+                               ATPM_Id,
                                show_GAM = False):
     """
 
@@ -200,5 +201,8 @@ def generate_maintenance_costs(path_to_data,
 
     :return: a dictionary {GAM:value, NGAM:value}
     """
-    maintenance_costs = maintenance.experimental_maintenance(path_to_data, path_to_model,show_GAM)
+    maintenance_costs = maintenance.experimental_maintenance(path_to_data,
+                                                             path_to_model,
+                                                             ATPM_Id,
+                                                             show_GAM)
     return maintenance_costs

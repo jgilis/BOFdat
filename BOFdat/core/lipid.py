@@ -174,10 +174,11 @@ def _calculate_coefficients(weight_dict,relative_abundance,LIPID_WEIGHT,CELL_WEI
     return dict(zip(keys,values))
 
 #User accessible API functions
-def generate_coefficients(path_to_lipidomic,path_to_conversion_file,
-                     path_to_model,
-                     LIPID_WEIGHT_FRACTION=0.091,
-                     R_WEIGHT = 284.486):
+def generate_coefficients(path_to_lipidomic,
+                          path_to_conversion_file,
+                          path_to_model,
+                          LIPID_WEIGHT_FRACTION=0.091,
+                          R_WEIGHT = 284.486):
     """
 
     Generates a dictionary of metabolite:coefficients for the lipid content of the cell. Lipids vary from a specie to another.
@@ -212,6 +213,11 @@ def generate_coefficients(path_to_lipidomic,path_to_conversion_file,
     #4- Get the relative abundance of each lipid
     rel_abundance = _get_relative_abundance(bigg_abundance)
     #5- Get the weight of each lipid specie
+    # The issue with this code is that it requires me to have a molecular weight for each molecule.
+    # However, in our model, we dont have a mw for the metabolite "fatty acid backbone", which makes sense.
+    # If we look up the associated chebi, we get CHO2R as formula, with mw = 45.01740 + R 
+    # Perhaps this will be wrong, but for now I will just give that metabolite the formula CHO2
+    model.metabolites.s_0694.formula = "CHO2"
     weight_dict = _get_lipid_weight(model,bigg_abundance.keys(),R_WEIGHT)
     #6- Calculate biomass stoichiometric coefficient
     biomass_coefficients = _calculate_coefficients(weight_dict,rel_abundance,LIPID_WEIGHT,CELL_WEIGHT,model)
